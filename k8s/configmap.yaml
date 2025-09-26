@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: file-system-config
+  namespace: file-system
+data:
+  # Database configuration
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "file_system_db"
+  DB_USER: "file_system_user"
+  
+  # Redis configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  
+  # Storage configuration
+  STORAGE_BASE_PATH: "/app/storage"
+  MAX_FILE_SIZE: "104857600"
+  ALLOWED_EXTENSIONS: ".txt,.pdf,.doc,.docx,.xls,.xlsx,.zip,.json,.csv,.xml"
+  MAX_ZIP_DEPTH: "3"
+  
+  # Service configuration
+  FILE_SERVICE_HOST: "0.0.0.0"
+  FILE_SERVICE_PORT: "8001"
+  EXTRACTION_SERVICE_HOST: "0.0.0.0"
+  EXTRACTION_SERVICE_PORT: "8002"
+  API_GATEWAY_HOST: "0.0.0.0"
+  API_GATEWAY_PORT: "8000"
+  
+  # Application configuration
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"

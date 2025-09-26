@@ -1,0 +1,219 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: file_system_postgres
+    environment:
+      POSTGRES_DB: file_system_db
+      POSTGRES_USER: file_system_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password_123}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - file_system_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U file_system_user -d file_system_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: file_system_redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password_123}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - file_system_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # File Service
+  file-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: file-service
+    container_name: file_system_file_service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://file_system_user:${DB_PASSWORD:-secure_password_123}@postgres:5432/file_system_db
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      - STORAGE_BASE_PATH=/app/storage
+      - FILE_SERVICE_HOST=0.0.0.0
+      - FILE_SERVICE_PORT=8001
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes:
+      - file_storage:/app/storage
+      - ./logs:/app/logs
+    ports:
+      - "8001:8001"
+    networks:
+      - file_system_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Extraction Service
+  extraction-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: extraction-service
+    container_name: file_system_extraction_service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://file_system_user:${DB_PASSWORD:-secure_password_123}@postgres:5432/file_system_db
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      - EXTRACTION_SERVICE_HOST=0.0.0.0
+      - EXTRACTION_SERVICE_PORT=8002
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes:
+      - file_storage:/app/storage:ro  # Read-only access to file storage
+      - ./logs:/app/logs
+    ports:
+      - "8002:8002"
+    networks:
+      - file_system_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      file-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # API Gateway (Optional Load Balancer/Router)
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-gateway
+    container_name: file_system_api_gateway
+    environment:
+      - FILE_SERVICE_URL=http://file-service:8001
+      - EXTRACTION_SERVICE_URL=http://extraction-service:8002
+      - API_GATEWAY_HOST=0.0.0.0
+      - API_GATEWAY_PORT=8000
+      - ENVIRONMENT=production
+      - DEBUG=false
+    ports:
+      - "8000:8000"
+    networks:
+      - file_system_network
+    depends_on:
+      file-service:
+        condition: service_healthy
+      extraction-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.125'
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: file_system_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - file_system_network
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+  # Database Migration Service (Init Container)
+  db-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    container_name: file_system_db_migrate
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://file_system_user:${DB_PASSWORD:-secure_password_123}@postgres:5432/file_system_db
+    command: python -c "import asyncio; from src.shared.db import init_db; asyncio.run(init_db())"
+    networks:
+      - file_system_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  file_storage:
+    driver: local
+
+networks:
+  file_system_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
