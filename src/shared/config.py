@@ -1,11 +1,22 @@
-from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
 import os
-from typing import Annotated
 
 load_dotenv()
 
-
 class Settings(BaseSettings):
-    db_url: str = os.getenv("DB_URL")
-    base_path: str = os.getenv("STORAGE_BASE_PATH")
+    postgres_url: str = os.getenv("POSTGRES_URL")
+
+    # Redis URL configs
+    redis_host: str = os.getenv("REDIS_HOST")
+    redis_port: int = int(os.getenv("REDIS_PORT"))
+    redis_db: int = int(os.getenv("REDIS_DB"))
+
+    # Storage Configs
+    storage_path: str = os.getenv("STORAGE_PATH")
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+
+settings = Settings()
