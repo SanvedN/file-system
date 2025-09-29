@@ -26,7 +26,7 @@ The system consists of three main microservices:
 - **Extraction Service** (Port 8002): Processes files and extracts structured data
 - **API Gateway** (Port 8000): Routes requests and provides unified API access
 
-![image](diagrams\component-diag.png)
+![image](https://github.com/SanvedN/file-system/blob/main/diagrams/component-diag.png?raw=true)
 
 ---
 
