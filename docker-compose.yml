@@ -186,22 +186,23 @@ services:
       - api-gateway
     restart: unless-stopped
 
-  # Database Migration Service (Init Container)
-  db-migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: base
-    container_name: file_system_db_migrate
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://file_system_user:${DB_PASSWORD:-secure_password_123}@postgres:5432/file_system_db
-    command: python -c "import asyncio; from src.shared.db import init_db; asyncio.run(init_db())"
-    networks:
-      - file_system_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
+# Database Migration Service (Init Container)
+db-migrate:
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: base
+  container_name: file_system_db_migrate
+  environment:
+    - DATABASE_URL=postgresql+asyncpg://file_system_user:${DB_PASSWORD:-secure_password_123}@postgres:5432/file_system_db
+    - ENVIRONMENT=production
+  command: python -c "import asyncio; from src.shared.migrations import initialize_database_migrations; asyncio.run(initialize_database_migrations())"
+  networks:
+    - file_system_network
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: "no"
 
 volumes:
   postgres_data:

@@ -127,6 +127,40 @@ redis-shell: ## Connect to Redis shell
 	@echo "$(BLUE)Connecting to Redis...$(NC)"
 	$(DOCKER_COMPOSE) exec redis redis-cli
 
+# Advanced Migration operations
+migrate-init: ## Initialize database with Alembic migrations
+	@echo "$(BLUE)Initializing database with Alembic migrations...$(NC)"
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import initialize_database_migrations; asyncio.run(initialize_database_migrations())"
+
+migrate-upgrade: ## Upgrade database to latest migration
+	@echo "$(BLUE)Upgrading database to latest migration...$(NC)"
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import upgrade_database_migrations; asyncio.run(upgrade_database_migrations())"
+
+migrate-status: ## Check migration status
+	@echo "$(BLUE)Checking migration status...$(NC)"
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import check_database_migration_status; print(asyncio.run(check_database_migration_status()))"
+
+migrate-create: ## Create a new migration (usage: make migrate-create MESSAGE="description")
+	@echo "$(BLUE)Creating new migration: $(MESSAGE)$(NC)"
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import create_database_migration; print(asyncio.run(create_database_migration('$(MESSAGE)')))"
+
+migrate-downgrade: ## Downgrade database (usage: make migrate-downgrade REVISION="revision_id")
+	@echo "$(RED)Downgrading database to revision: $(REVISION)$(NC)"
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import get_migration_manager; asyncio.run(get_migration_manager().downgrade_database('$(REVISION)'))"
+
+migrate-history: ## Show migration history
+	@echo "$(BLUE)Migration history:$(NC)"
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import get_migration_manager; print(asyncio.run(get_migration_manager().get_migration_history()))"
+
+migrate-reset: ## Reset database with migrations (WARNING: This will delete all data)
+	@echo "$(RED)WARNING: This will delete all data!$(NC)"
+	@read -p "Are you sure? (y/N): " confirm && [ "$$confirm" = "y" ]
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import get_migration_manager; asyncio.run(get_migration_manager().reset_database())"
+
+migrate-validate: ## Validate all migrations
+	@echo "$(BLUE)Validating migrations...$(NC)"
+	$(PYTHON) -c "import asyncio; from src.shared.migrations import get_migration_manager; print('Valid:', asyncio.run(get_migration_manager().validate_migrations()))"
+
 # Docker Operations
 docker-build: ## Build Docker images
 	@echo "$(BLUE)Building Docker images...$(NC)"

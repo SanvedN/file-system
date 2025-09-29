@@ -1,0 +1,82 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrations
+  namespace: file-system
+  labels:
+    app: db-migrations
+spec:
+  template:
+    metadata:
+      labels:
+        app: db-migrations
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-migrations
+          image: file-system-base:latest # Ensure this image is built and pushed to a registry
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+            - configMapRef:
+                name: file-system-config
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+            - name: ENVIRONMENT
+              value: "production"
+          command: ["python", "-c"]
+          args: 
+            - "import asyncio; from src.shared.migrations import initialize_database_migrations; asyncio.run(initialize_database_migrations())"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      backoffLimit: 3
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-migration-check
+  namespace: file-system
+  labels:
+    app: db-migration-check
+spec:
+  schedule: "0 2 * * *" # Run daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: db-migration-check
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: migration-check
+              image: file-system-base:latest
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - secretRef:
+                    name: postgres-secret
+                - configMapRef:
+                    name: file-system-config
+              env:
+                - name: DATABASE_URL
+                  value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+                - name: ENVIRONMENT
+                  value: "production"
+              command: ["python", "-c"]
+              args:
+                - "import asyncio; from src.shared.migrations import check_database_migration_status; status = asyncio.run(check_database_migration_status()); print(f'Migration Status: {status}'); exit(0 if status['is_up_to_date'] else 1)"
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "128Mi"
+                  cpu: "100m"
