@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import text
 
 from src.shared.db import engine
-from src.file_service.models import Base, Tenant
+from src.file_service.models import Base, Tenant, File
 from datetime import datetime
 from src.shared.utils import setup_logger
 
@@ -25,15 +25,7 @@ async def run():
     # Insert a sample tenant
     logger.debug("Inserting a test tenant...")
     async with AsyncSessionLocal() as session:
-        tenant = Tenant(
-            tenant_code="ABC123",
-            configuration={
-                "max_size": 1024,
-                "allowed_extensions": ["pdf", "docx", "txt"],
-                "media_types": ["application/pdf", "application/msword", "text/plain"],
-                "max_zip_depth": 3,
-            },
-        )
+        tenant = Tenant(tenant_code="ABC123")
         session.add(tenant)
         await session.commit()
     logger.debug("Tenant inserted")

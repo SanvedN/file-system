@@ -1,9 +1,12 @@
-from sqlalchemy import String, Integer, DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
-from src.file_service.utils import UserConfigJSON
-from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime
 import uuid
+from datetime import datetime
+from sqlalchemy import String, Integer, BigInteger, DateTime, ForeignKey, Index, func
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from src.file_service.utils import (
+    UserConfigJSON,
+    get_default_tenant_configs_from_config,
+)
 
 
 class Base(DeclarativeBase):
@@ -13,12 +16,14 @@ class Base(DeclarativeBase):
 class Tenant(Base):
     __tablename__ = "cf_filerepo_tenant_config"
 
-    # primary key
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4()
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     tenant_code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
-    configuration: Mapped[dict] = mapped_column(UserConfigJSON, nullable=False)
+    configuration: Mapped[dict] = mapped_column(
+        UserConfigJSON, nullable=False, default=get_default_tenant_configs_from_config()
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -29,8 +34,59 @@ class Tenant(Base):
         nullable=False,
     )
 
+    # Relationship to FileRepoFile
+    files: Mapped[list["File"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan", lazy="selectin"
+    )
+
     def __repr__(self):
         return (
-            f"<Tenant(id={self.id}, code={self.code}, configuration={self.configuration}, "
-            f"created_at={self.created_at}, updated_at={self.updated_at})>"
+            f"<Tenant(tenant_id={self.tenant_id}, tenant_code={self.tenant_code}, "
+            f"configuration={self.configuration}, created_at={self.created_at}, "
+            f"updated_at={self.updated_at})>"
+        )
+
+
+class File(Base):
+    __tablename__ = "cf_filerepo_file"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cf_filerepo_tenant_config.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    file_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    file_path: Mapped[str | None] = mapped_column(String(512))
+    media_type: Mapped[str | None] = mapped_column(String(256))
+    file_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    tag: Mapped[str | None] = mapped_column(String(64))
+    file_metadata: Mapped[dict | None] = mapped_column(JSONB)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    modified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationship to Tenant
+    tenant: Mapped["Tenant"] = relationship(back_populates="files", lazy="joined")
+
+    __table_args__ = (
+        Index("idx_cf_filerepo_file_tenant_id", "tenant_id"),
+        Index("idx_cf_filerepo_file_tag", "tag"),
+        Index("idx_cf_filerepo_file_created_at", "created_at"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<File(id={self.id}, tenant_id={self.tenant_id}, "
+            f"file_name={self.file_name}, file_path={self.file_path}, "
+            f"media_type={self.media_type}, file_size_bytes={self.file_size_bytes}, "
+            f"tag={self.tag}, created_at={self.created_at}, modified_at={self.modified_at})>"
         )

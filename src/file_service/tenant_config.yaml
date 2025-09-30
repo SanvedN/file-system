@@ -1,0 +1,19 @@
+max_file_size_kbytes: 2048
+allowed_extensions:
+  - .pdf
+  - .jpg
+  - .jpeg
+  - .png
+  - .txt
+  - .doc
+  - .docx
+forbidden_extensions:
+  - .zip
+allowed_mime_types:
+  - application/pdf
+  - image/jpeg
+  - image/png
+  - text/plain
+forbidden_mime_types:
+  - application/msword
+max_zip_depth: 3
