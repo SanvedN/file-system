@@ -34,10 +34,16 @@ class Tenant(Base):
         nullable=False,
     )
 
-    # Relationship to FileRepoFile
     files: Mapped[list["File"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan", lazy="selectin"
     )
+
+    _immutable_fields = {"tenant_id", "tenant_code", "created_at"}
+
+    def __setattr__(self, key, value):
+        if key in self._immutable_fields and hasattr(self, key):
+            raise AttributeError(f"'{key}' is immutable and cannot be modified.")
+        super().__setattr__(key, value)
 
     def __repr__(self):
         return (
@@ -61,9 +67,9 @@ class File(Base):
     )
 
     file_name: Mapped[str] = mapped_column(String(256), nullable=False)
-    file_path: Mapped[str | None] = mapped_column(String(512))
-    media_type: Mapped[str | None] = mapped_column(String(256))
-    file_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    file_path: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
+    media_type: Mapped[str] = mapped_column(String(256), nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     tag: Mapped[str | None] = mapped_column(String(64))
     file_metadata: Mapped[dict | None] = mapped_column(JSONB)
 
@@ -74,7 +80,6 @@ class File(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    # Relationship to Tenant
     tenant: Mapped["Tenant"] = relationship(back_populates="files", lazy="joined")
 
     __table_args__ = (
@@ -82,6 +87,15 @@ class File(Base):
         Index("idx_cf_filerepo_file_tag", "tag"),
         Index("idx_cf_filerepo_file_created_at", "created_at"),
     )
+
+    _mutable_fields = {"file_name", "tag", "file_metadata"}
+
+    def __setattr__(self, key, value):
+        # Allow only _mutable_fields to be updated if attribute already set
+        if hasattr(self, key):
+            if key not in self._mutable_fields and key not in {"modified_at"}:
+                raise AttributeError(f"'{key}' is immutable and cannot be modified.")
+        super().__setattr__(key, value)
 
     def __repr__(self):
         return (
