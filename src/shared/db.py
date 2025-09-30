@@ -1,8 +1,10 @@
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from src.shared.config import settings
 from src.shared.utils import setup_logger
 import asyncio
+from src.file_service.models import Tenant, File
+from src.shared.base import Base
 
 logger = setup_logger()
 
@@ -11,13 +13,8 @@ SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 logger.debug("DB engine and Sessionmaker is created")
 
 
-class Base(DeclarativeBase):
-    pass
-
-
 async def create_db():
     async with engine.begin() as conn:
-        from src.file_service.models import Tenant
 
         await conn.run_sync(Base.metadata.create_all)
         logger.debug("Tables Created")
