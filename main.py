@@ -11,11 +11,6 @@ async def root() -> dict:
     return {"app_status": "Running"}
 
 
-@app.get("/health", status_code=status.HTTP_200_OK)
-async def get_health() -> dict:
-    return {"status": "OK"}
-
-
-@app.get("/get_base_path")
-async def get_base_path() -> dict:
-    return {"base_path": settings.base_path}
+@app.get("/ping", status_code=status.HTTP_200_OK)
+async def get_health() -> str:
+    return "PONG"
