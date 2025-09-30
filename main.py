@@ -1,10 +1,7 @@
 from fastapi import FastAPI, status
-from src.shared.config import Settings
+from src.shared.config import settings
 
 app = FastAPI()
-
-settings = Settings()
-
 
 @app.get("/")
 async def root() -> dict:
@@ -12,5 +9,6 @@ async def root() -> dict:
 
 
 @app.get("/ping", status_code=status.HTTP_200_OK)
-async def get_health() -> str:
+async def ping() -> str:
     return "PONG"
+

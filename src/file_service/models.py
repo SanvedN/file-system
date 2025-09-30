@@ -1,23 +1,36 @@
-from ..shared.db import Base
-from sqlalchemy import String, Integer
-from sqlalchemy.orm import Mapped, mapped_column
-from utils import ConfigSchema
+from sqlalchemy import String, Integer, DateTime, func
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
+from src.file_service.utils import UserConfigJSON
+from datetime import datetime
 import uuid
 
 
+class Base(DeclarativeBase):
+    pass
+
+
 class Tenant(Base):
-    __tablename__ = "tenants"
+    __tablename__ = "cf_filerepo_tenant_config"
 
     # primary key
-    id: Mapped[str] = mapped_column(
+    tenant_id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
 
-    code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
-    name: Mapped[str] = mapped_column(
-        String(100)
-    )  # Can be null as long as we have the code
-    configuration: Mapped[dict] = mapped_column(ConfigSchema, nullable=False)
+    tenant_code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    configuration: Mapped[dict] = mapped_column(UserConfigJSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     def __repr__(self):
-        return f"<Tenant(id={self.id}, code={self.code}, configuration={self.configuration})>"
+        return (
+            f"<Tenant(id={self.id}, code={self.code}, configuration={self.configuration}, "
+            f"created_at={self.created_at}, updated_at={self.updated_at})>"
+        )

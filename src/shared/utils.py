@@ -1,7 +1,7 @@
 import os
 import logging
 import structlog
-from config import settings
+from src.shared.config import settings
 
 def get_log_level(level_str: str) -> int:
     """Convert string log level to logging module's level."""

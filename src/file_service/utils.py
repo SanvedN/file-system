@@ -1,6 +1,6 @@
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
-from schemas import ConfigSchema
+from src.file_service.schemas import ConfigSchema
 from pydantic import ValidationError
 
 
