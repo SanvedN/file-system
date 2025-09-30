@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import pydantic
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
@@ -30,3 +31,11 @@ def get_default_tenant_configs_from_config(
         raise FileNotFoundError(f"YAML config file not found at path: {path}")
     except yaml.YAMLError as e:
         raise ValueError(f"Error parsing YAML file at {path}: {e}")
+
+
+def generate_file_path(
+    tenant_code: str, file_id: str, filename: str, dt: datetime | None = None
+) -> str:
+    ext = filename.rsplit(".", 1)[-1]
+    date_str = (dt or datetime.now(timezone.utc)).strftime("%Y_%m")
+    return f"{tenant_code}/{date_str}/{file_id}.{ext}"

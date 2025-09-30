@@ -11,9 +11,13 @@ SessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 logger.debug("DB engine and Sessionmaker is created")
 
 
+class Base(DeclarativeBase):
+    pass
+
+
 async def create_db():
     async with engine.begin() as conn:
-        from src.file_service.models import Tenant, Base
+        from src.file_service.models import Tenant
 
         await conn.run_sync(Base.metadata.create_all)
         logger.debug("Tables Created")

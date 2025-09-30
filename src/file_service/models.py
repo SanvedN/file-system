@@ -3,14 +3,11 @@ from datetime import datetime
 from sqlalchemy import String, Integer, BigInteger, DateTime, ForeignKey, Index, func
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
+from src.shared.db import Base
 from src.file_service.utils import (
     UserConfigJSON,
     get_default_tenant_configs_from_config,
 )
-
-
-class Base(DeclarativeBase):
-    pass
 
 
 class Tenant(Base):
