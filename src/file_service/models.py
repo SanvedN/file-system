@@ -1,6 +1,7 @@
 from sqlalchemy import String, Integer, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 from src.file_service.utils import UserConfigJSON
+from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 import uuid
 
@@ -13,10 +14,9 @@ class Tenant(Base):
     __tablename__ = "cf_filerepo_tenant_config"
 
     # primary key
-    tenant_id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4()
     )
-
     tenant_code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     configuration: Mapped[dict] = mapped_column(UserConfigJSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
