@@ -41,7 +41,11 @@ class Tenant(Base):
     _immutable_fields = {"tenant_id", "tenant_code", "created_at"}
 
     def __setattr__(self, key, value):
-        if key in self._immutable_fields and hasattr(self, key):
+        if (
+            key in self._immutable_fields
+            and hasattr(self, key)
+            and key in self.__dict__
+        ):
             raise AttributeError(f"'{key}' is immutable and cannot be modified.")
         super().__setattr__(key, value)
 
@@ -56,8 +60,8 @@ class Tenant(Base):
 class File(Base):
     __tablename__ = "cf_filerepo_file"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    file_id: Mapped[str] = mapped_column(
+        String(35), primary_key=True, default=f"fs_{uuid.uuid4().hex}"
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -91,9 +95,9 @@ class File(Base):
     _mutable_fields = {"file_name", "tag", "file_metadata"}
 
     def __setattr__(self, key, value):
-        # Allow only _mutable_fields to be updated if attribute already set
-        if hasattr(self, key):
-            if key not in self._mutable_fields and key not in {"modified_at"}:
+        # Only restrict mutation if the attribute already exists
+        if key in self.__dict__:
+            if key not in self._mutable_fields and key != "modified_at":
                 raise AttributeError(f"'{key}' is immutable and cannot be modified.")
         super().__setattr__(key, value)
 
