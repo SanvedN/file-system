@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+
+  app:
+    build: .
+    command: uvicorn src.gateway.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ./src:/app/src
+    environment:
+      DATABASE_URL: postgresql+asyncpg://appuser:secret@db:5432/appdb
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BASE_PATH: /app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  pgdata:

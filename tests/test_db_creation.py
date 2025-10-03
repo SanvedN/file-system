@@ -5,10 +5,10 @@ import uuid
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import text
 
-from src.shared.db import engine, Base
-from src.file_service.models import Tenant, File
+from shared.db import engine, Base
+from file_service.models import Tenant, File
 from datetime import datetime
-from src.shared.utils import setup_logger
+from shared.utils import setup_logger
 
 logger = setup_logger()
 

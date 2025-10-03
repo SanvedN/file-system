@@ -1,7 +1,9 @@
 import os
 import logging
+import shutil
 import structlog
-from src.shared.config import settings
+from shared.config import settings
+
 
 def get_log_level(level_str: str) -> int:
     """Convert string log level to logging module's level."""
@@ -12,7 +14,9 @@ def get_log_level(level_str: str) -> int:
         "INFO": logging.INFO,
         "DEBUG": logging.DEBUG,
         "NOTSET": logging.NOTSET,
-    }.get(level_str.upper(), logging.INFO)  # default to INFO if unknown
+    }.get(
+        level_str.upper(), logging.INFO
+    )  # default to INFO if unknown
 
 
 def get_log_processors(format_str: str):
@@ -22,7 +26,7 @@ def get_log_processors(format_str: str):
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.EventRenamer("log"),
     ]
-    
+
     if format_str and format_str.lower() == "json":
         base_processors.append(structlog.processors.JSONRenderer())
     else:
@@ -41,7 +45,20 @@ def setup_logger():
 
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(log_level),
-        processors=processors
+        processors=processors,
     )
 
     return structlog.get_logger()
+
+logger = setup_logger()
+
+def tenant_folder_path(tenant_code: str) -> str:
+    return os.path.join(settings.STORAGE_BASE_PATH, tenant_code)
+
+def delete_tenant_folder(tenant_code: str) -> None:
+    path = tenant_folder_path(tenant_code)
+    if os.path.exists(path):
+        shutil.rmtree(path)
+        logger.info("Deleted tenant folder at %s", path)
+    else:
+        logger.debug("Tenant folder does not exist at %s", path)

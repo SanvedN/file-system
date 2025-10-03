@@ -1,13 +1,106 @@
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+from datetime import datetime
 
 
 class ConfigSchema(BaseModel):
-
-    # this size is in KB - kilobytes
     max_file_size_kbytes: int
+    allowed_extensions: Optional[list[str]] = Field(default_factory=list)
+    allowed_mime_types: Optional[list[str]] = Field(default_factory=list)
+    forbidden_extensions: Optional[list[str]] = Field(default_factory=list)
+    forbidden_mime_types: Optional[list[str]] = Field(default_factory=list)
+    max_zip_depth: int = 0
 
-    allowed_extensions: list[str]
-    forbidden_extensions: list[str]
-    allowed_mime_types: list[str]
-    forbidden_mime_types: list[str]
-    max_zip_depth: int
+
+TENANT_CODE_REGEX = re.compile(r"^[A-Z][A-Z0-9]*$")
+
+
+class TenantConfig(BaseModel):
+    max_file_size_kbytes: Optional[int] = Field(
+        None, gt=0, description="Maximum allowed file size in kilobytes"
+    )
+    allowed_extensions: Optional[List[str]] = Field(
+        None,
+        description="List of allowed file extensions (with leading dot, e.g. .pdf)",
+    )
+    forbidden_extensions: Optional[List[str]] = Field(
+        None, description="Explicitly forbidden extensions"
+    )
+    allowed_mime_types: Optional[List[str]] = Field(
+        None, description="Allowed MIME types"
+    )
+    forbidden_mime_types: Optional[List[str]] = Field(
+        None, description="Forbidden MIME types"
+    )
+    max_zip_depth: Optional[int] = Field(
+        0, ge=0, description="How many nested zips allowed (0 = not allowed)"
+    )
+
+    @field_validator("allowed_extensions", "forbidden_extensions", mode="before")
+    @classmethod
+    def ensure_extension_format(cls, v: List[str]):
+        if v is None:
+            return v
+        return [cls._validate_extension(ext) for ext in v]
+
+    @staticmethod
+    def _validate_extension(v: str) -> str:
+        if not v:
+            raise ValueError("extensions must be non-empty strings")
+        if not v.startswith("."):
+            raise ValueError("extensions must start with a dot, e.g. .pdf")
+        return v.lower()
+
+    @field_validator("max_file_size_kbytes")
+    @classmethod
+    def positive_kbytes(cls, v):
+        if v is not None and v <= 0:
+            raise ValueError("max_file_size_kbytes must be greater than 0")
+        return v
+
+    @field_validator("allowed_mime_types", "forbidden_mime_types", mode="before")
+    @classmethod
+    def ensure_mime_format(cls, v: List[str]):
+        if v is None:
+            return v
+        return [cls._validate_mime(mime) for mime in v]
+
+    @staticmethod
+    def _validate_mime(v: str) -> str:
+        if not v or "/" not in v:
+            raise ValueError("invalid mime type")
+        return v.lower()
+
+
+class TenantCreate(BaseModel):
+    tenant_code: str = Field(
+        ..., max_length=32, description="Tenant-provided unique code."
+    )
+    configuration: Optional[TenantConfig] = None
+
+    @field_validator("tenant_code")
+    @classmethod
+    def validate_code(cls, v: str):
+        if not TENANT_CODE_REGEX.match(v):
+            raise ValueError(
+                "tenant code must start with a capital letter and contain only A-Z0-9"
+            )
+        return v
+
+
+class TenantUpdate(BaseModel):
+    configuration: Optional[TenantConfig] = None
+
+
+class TenantResponse(BaseModel):
+    tenant_id: UUID
+    tenant_code: str
+    configuration: Dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
