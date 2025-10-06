@@ -131,3 +131,50 @@ async def cache_get_file_detail(
 
 async def cache_delete_file_detail(redis: redis.Redis, tenant_id: str, file_id: str) -> None:
     await redis.delete(redis_key_for_file_detail(tenant_id, file_id))
+
+
+# -------------------- Embeddings Cache Helpers --------------------
+
+
+def redis_key_for_emb_pages(file_id: str) -> str:
+    return f"emb:pages:{file_id}"
+
+
+def redis_key_for_emb_search_tenant(tenant_id: str, qhash: str, top_k: int) -> str:
+    return f"emb:search:t:{tenant_id}:{qhash}:{top_k}"
+
+
+def redis_key_for_emb_search_file(file_id: str, qhash: str, top_k: int) -> str:
+    return f"emb:search:f:{file_id}:{qhash}:{top_k}"
+
+
+async def cache_set_emb_pages(redis: redis.Redis, file_id: str, pages: list[dict], ttl_seconds: int = 600) -> None:
+    await redis.set(redis_key_for_emb_pages(file_id), json.dumps(pages), ex=ttl_seconds)
+
+
+async def cache_get_emb_pages(redis: redis.Redis, file_id: str) -> list[dict] | None:
+    v = await redis.get(redis_key_for_emb_pages(file_id))
+    if not v:
+        return None
+    try:
+        return json.loads(v)
+    except Exception:
+        return None
+
+
+async def cache_delete_emb_pages(redis: redis.Redis, file_id: str) -> None:
+    await redis.delete(redis_key_for_emb_pages(file_id))
+
+
+async def cache_set_search(redis: redis.Redis, key: str, rows: list[dict], ttl_seconds: int = 300) -> None:
+    await redis.set(key, json.dumps(rows), ex=ttl_seconds)
+
+
+async def cache_get_search(redis: redis.Redis, key: str) -> list[dict] | None:
+    v = await redis.get(key)
+    if not v:
+        return None
+    try:
+        return json.loads(v)
+    except Exception:
+        return None

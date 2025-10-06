@@ -15,6 +15,13 @@ from extraction_service.schemas import GenerateEmbeddingsResponse
 from shared.cache import (
     cache_get,
     cache_set,
+    cache_get_emb_pages,
+    cache_set_emb_pages,
+    cache_delete_emb_pages,
+    cache_get_search,
+    cache_set_search,
+    redis_key_for_emb_search_tenant,
+    redis_key_for_emb_search_file,
 )
 
 # OCR and PDF tools
@@ -82,10 +89,11 @@ async def generate_embeddings_for_file(
         await crud.upsert(db, file_id=file_id, page_id=idx, vector=vector, ocr=ocr_text)
         pages_processed += 1
 
-    # Mark done in cache
+    # Mark done in cache and invalidate pages/search caches
     try:
         if redis:
             await cache_set(cache_key, "1", ex=3600)
+            await cache_delete_emb_pages(redis, file_id)
     except Exception:
         pass
 
@@ -97,11 +105,15 @@ async def get_embeddings_for_file(db: AsyncSession, *, file_id: str):
 
 
 async def search_embeddings_for_file(db: AsyncSession, *, file_id: str, query: str, top_k: int):
-    qvec = embedder.encode(query).tolist()
+    qhash = str(abs(hash((query, top_k))))
+    key = redis_key_for_emb_search_file(file_id, qhash, top_k)
+    # No redis param here; kept simple; cache functions use global client in shared.cache when needed
+    qvec = await anyio.to_thread.run_sync(lambda: embedder.encode(query).tolist())
     return await crud.search(db, file_id=file_id, query_vector=qvec, top_k=top_k)
 
 
 async def search_embeddings_for_tenant(db: AsyncSession, *, tenant_id: str, query: str, top_k: int):
+    qhash = str(abs(hash((query, top_k))))
     qvec = await anyio.to_thread.run_sync(lambda: embedder.encode(query).tolist())
     return await crud.search_tenant(db, tenant_id=tenant_id, query_vector=qvec, top_k=top_k)
 

@@ -105,6 +105,7 @@ async def upload_file(
     file: UploadFile,
     tag: Optional[str],
     metadata: Optional[Dict[str, Any]],
+    redis=None,
 ) -> Dict[str, Any]:
     # Generate file id and destination path
     file_id = f"CF_FR_{uuid.uuid4().hex[:12]}"
@@ -155,6 +156,14 @@ async def upload_file(
         tag=tag,
         file_metadata=metadata,
     )
+
+    # Invalidate caches for tenant list and this file detail
+    try:
+        if redis:
+            await cache_delete_files_list(redis, str(tenant_id))
+            await cache_delete_file_detail(redis, str(tenant_id), file_id)
+    except Exception:
+        logger.exception("Failed to invalidate caches after upload")
 
     return {
         "id": rec.file_id,
@@ -207,12 +216,20 @@ async def update_file(
     file_id: str,
     tag: Optional[str],
     metadata: Optional[Dict[str, Any]],
+    redis=None,
 ):
     rec = await file_crud.update_mutable(
         db, tenant_id=tenant_id, file_id=file_id, tag=tag, file_metadata=metadata
     )
     if not rec:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    # Invalidate caches
+    try:
+        if redis:
+            await cache_delete_file_detail(redis, str(tenant_id), file_id)
+            await cache_delete_files_list(redis, str(tenant_id))
+    except Exception:
+        logger.exception("Failed to invalidate caches after update")
     return rec
 
 
