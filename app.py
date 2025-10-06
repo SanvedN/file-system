@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from typing_extensions import deprecated
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, StreamingResponse
@@ -84,7 +85,7 @@ async def _proxy(request: Request) -> Response:
 async def proxy_v2(full_path: str, request: Request):
     return await _proxy(request)
 
-
+@deprecated("v1/tenants is deprecated, use v2/tenants instead")
 @app.api_route("/v1/tenants/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 async def proxy_v1(full_path: str, request: Request):
     return await _proxy(request)
