@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   db:
-    image: postgres:15-alpine
+    image: ankane/pgvector:pg15
     restart: always
     environment:
       POSTGRES_USER: appuser
@@ -19,20 +17,71 @@ services:
     ports:
       - "6379:6379"
 
-  app:
+  gateway:
     build: .
-    command: uvicorn src.gateway.main:app --host 0.0.0.0 --port 8000
-    volumes:
-      - ./src:/app/src
+    command: uvicorn app:app --host 0.0.0.0 --port 8000
     environment:
-      DATABASE_URL: postgresql+asyncpg://appuser:secret@db:5432/appdb
-      REDIS_URL: redis://redis:6379/0
-      STORAGE_BASE_PATH: /app/storage
+      FILE_SERVICE_BASE: http://file_service:8001
+      EXTRACTION_SERVICE_BASE: http://extraction_service:8002
     ports:
       - "8000:8000"
+    depends_on:
+      - file_service
+      - extraction_service
+
+  file_service:
+    build: .
+    command: uvicorn src.file_service.app:app --host 0.0.0.0 --port 8001 --app-dir /app/src
+    environment:
+      FILE_REPO_DB_NAME: appdb
+      FILE_REPO_DB_USERNAME: appuser
+      FILE_REPO_DB_PASSWORD: secret
+      FILE_REPO_DB_HOST: db
+      FILE_REPO_DB_PORT: 5432
+      FILE_REPO_REDIS_HOST: redis
+      FILE_REPO_REDIS_PORT: 6379
+      FILE_REPO_REDIS_DB_NUMBER: 0
+      FILE_REPO_STORAGE_BASE: /app/storage
+      FILE_REPO_TEMP_BASE: /app/temp
+      FILE_REPO_LOG_LEVEL: INFO
+      FILE_REPO_LOG_FORMAT: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      FILE_REPO_CORS_ORIGINS: "*"
+      FILE_REPO_HOST: 0.0.0.0
+      FILE_REPO_PORT: 8001
+    volumes:
+      - storage:/app/storage
+      - temp:/app/temp
+    depends_on:
+      - db
+      - redis
+
+  extraction_service:
+    build: .
+    command: uvicorn src.extraction_service.app:app --host 0.0.0.0 --port 8002 --app-dir /app/src
+    environment:
+      FILE_REPO_DB_NAME: appdb
+      FILE_REPO_DB_USERNAME: appuser
+      FILE_REPO_DB_PASSWORD: secret
+      FILE_REPO_DB_HOST: db
+      FILE_REPO_DB_PORT: 5432
+      FILE_REPO_REDIS_HOST: redis
+      FILE_REPO_REDIS_PORT: 6379
+      FILE_REPO_REDIS_DB_NUMBER: 0
+      FILE_REPO_STORAGE_BASE: /app/storage
+      FILE_REPO_TEMP_BASE: /app/temp
+      FILE_REPO_LOG_LEVEL: INFO
+      FILE_REPO_LOG_FORMAT: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      FILE_REPO_CORS_ORIGINS: "*"
+      FILE_REPO_HOST: 0.0.0.0
+      FILE_REPO_PORT: 8002
+    volumes:
+      - storage:/app/storage
+      - temp:/app/temp
     depends_on:
       - db
       - redis
 
 volumes:
   pgdata:
+  storage:
+  temp:

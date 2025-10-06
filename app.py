@@ -24,7 +24,7 @@ app.add_middleware(
 
 @app.get("/")
 async def root() -> dict:
-    return {"main_app": "Running"}
+    return {"gateway": "Running"}
 
 
 @app.get("/ping", status_code=status.HTTP_200_OK)
