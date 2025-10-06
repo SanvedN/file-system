@@ -76,3 +76,58 @@ async def cache_get_tenant(redis: redis.Redis, code: str) -> dict | None:
 
 async def cache_delete_tenant(redis: redis.Redis, code: str) -> None:
     await redis.delete(redis_key_for_tenant(code))
+
+
+# -------------------- File Cache Helpers --------------------
+
+
+def redis_key_for_files_list(tenant_id: str) -> str:
+    return f"files:list:{tenant_id}"
+
+
+def redis_key_for_file_detail(tenant_id: str, file_id: str) -> str:
+    return f"files:detail:{tenant_id}:{file_id}"
+
+
+async def cache_set_files_list(
+    redis: redis.Redis, tenant_id: str, files: list[dict], ttl_seconds: int = 300
+) -> None:
+    await redis.set(redis_key_for_files_list(tenant_id), json.dumps(files), ex=ttl_seconds)
+
+
+async def cache_get_files_list(redis: redis.Redis, tenant_id: str) -> list[dict] | None:
+    v = await redis.get(redis_key_for_files_list(tenant_id))
+    if v is None:
+        return None
+    try:
+        return json.loads(v)
+    except Exception:
+        return None
+
+
+async def cache_delete_files_list(redis: redis.Redis, tenant_id: str) -> None:
+    await redis.delete(redis_key_for_files_list(tenant_id))
+
+
+async def cache_set_file_detail(
+    redis: redis.Redis, tenant_id: str, file_id: str, file_obj: dict, ttl_seconds: int = 300
+) -> None:
+    await redis.set(
+        redis_key_for_file_detail(tenant_id, file_id), json.dumps(file_obj), ex=ttl_seconds
+    )
+
+
+async def cache_get_file_detail(
+    redis: redis.Redis, tenant_id: str, file_id: str
+) -> dict | None:
+    v = await redis.get(redis_key_for_file_detail(tenant_id, file_id))
+    if v is None:
+        return None
+    try:
+        return json.loads(v)
+    except Exception:
+        return None
+
+
+async def cache_delete_file_detail(redis: redis.Redis, tenant_id: str, file_id: str) -> None:
+    await redis.delete(redis_key_for_file_detail(tenant_id, file_id))

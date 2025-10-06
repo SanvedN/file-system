@@ -7,17 +7,17 @@ import signal
 services = {
     "main": {
         "app_module": "app:app",  # e.g. app.py contains FastAPI instance named "app"
-        "app_dir": "./",  # path to the folder containing app.py
+        "app_dir": ".",  # gateway at project root
         "port": 8000,
     },
     "file_service": {
-        "app_module": "app:app",
-        "app_dir": "./src/file_service",
+        "app_module": "file_service.app:app",
+        "app_dir": "src",
         "port": 8001,
     },
     "extraction_service": {
-        "app_module": "app:app",
-        "app_dir": "./src/extraction_service",
+        "app_module": "extraction_service.app:app",
+        "app_dir": "src",
         "port": 8002,
     },
 }

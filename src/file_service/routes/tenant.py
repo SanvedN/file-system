@@ -14,7 +14,7 @@ from shared.cache import get_redis_client, get_redis
 from shared.utils import logger
 from file_service.crud.tenant import TenantCRUD
 
-router = APIRouter(prefix="/v1/tenants", tags=["Tenants"])
+router = APIRouter(prefix="/v2/tenants", tags=["Tenants"])
 
 
 @router.get("/ping", summary="Tenant service ping")

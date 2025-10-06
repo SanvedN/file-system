@@ -104,3 +104,72 @@ class TenantResponse(BaseModel):
     class Config:
         orm_mode = True
         allow_population_by_field_name = True
+
+
+# ---------------------- File Schemas ----------------------
+
+
+TAG_REGEX = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_]{0,63}$")
+
+
+class FileUpdateRequest(BaseModel):
+    tag: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    @field_validator("tag")
+    @classmethod
+    def validate_tag(cls, v: Optional[str]):
+        if v is None:
+            return v
+        if not TAG_REGEX.match(v):
+            raise ValueError(
+                "tag must match ^[a-zA-Z0-9][a-zA-Z0-9_]{0,63}$ and cannot start with _"
+            )
+        return v
+
+
+class FileResponse(BaseModel):
+    id: str = Field(alias="file_id")
+    file_name: str
+    media_type: str
+    file_size_bytes: int
+    tag: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = Field(default=None, alias="file_metadata")
+    created_at: datetime
+    modified_at: datetime
+
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+
+
+class FileSearchFilters(BaseModel):
+    file_name: Optional[str] = None
+    media_type: Optional[str] = None
+    tag: Optional[str] = None
+    file_size_min: Optional[int] = None
+    file_size_max: Optional[int] = None
+    created_after: Optional[datetime] = None
+    created_before: Optional[datetime] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class FileSearchSort(BaseModel):
+    field: Optional[str] = Field(default="created_at")
+    order: Optional[str] = Field(default="desc")
+
+
+class FileSearchPagination(BaseModel):
+    page: int = 1
+    limit: int = 50
+
+
+class FileSearchRequest(BaseModel):
+    filters: FileSearchFilters = Field(default_factory=FileSearchFilters)
+    sort: FileSearchSort = Field(default_factory=FileSearchSort)
+    pagination: FileSearchPagination = Field(default_factory=FileSearchPagination)
+
+
+class FileSearchResponse(BaseModel):
+    files: List[FileResponse]
+    pagination: Dict[str, Any]

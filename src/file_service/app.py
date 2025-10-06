@@ -6,14 +6,11 @@ from shared.base import Base
 from shared.cache import get_redis_client
 from shared.db import SessionLocal
 import file_service.routes.tenant as tenant_routes
+import file_service.routes.files as file_routes
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 from shared.config import settings
 from shared.db import get_db, engine, SessionLocal
-
-# Global variables to hold engine, sessionmaker, redis client
-# Initialize DB engine and sessionmaker globally
-
 
 async def get_redis():
     redis = await get_redis_client()
@@ -38,7 +35,7 @@ async def lifespan(app: FastAPI):
     yield  # app runs here
 
     # Shutdown code
-    await redis_client.close()
+    await redis_client.aclose()
     await engine.dispose()
 
 
@@ -61,6 +58,12 @@ app.include_router(
     tenant_routes.router,
     dependencies=[Depends(get_db), Depends(get_redis)],
     tags=["Tenants"],
+)
+
+app.include_router(
+    file_routes.router,
+    dependencies=[Depends(get_db), Depends(get_redis)],
+    tags=["Files"],
 )
 
 

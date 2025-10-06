@@ -57,9 +57,9 @@ def sanitize_filename(name: str) -> str:
 
 
 def tenant_month_folder(tenant_code: str) -> str:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     folder = f"{tenant_code}/{now.strftime('%Y-%m')}"
-    base = settings.STORAGE_BASE_PATH.rstrip("/")
+    base = settings.file_repo_storage_base
     return os.path.join(base, folder)
 
 
@@ -72,7 +72,7 @@ def generate_file_path(tenant_code: str, file_id: str, filename: str) -> str:
 
 
 def delete_tenant_folder(tenant_code: str) -> None:
-    path = os.path.join(settings.STORAGE_BASE_PATH, tenant_code)
+    path = os.path.join(settings.file_repo_storage_base, tenant_code)
     if os.path.exists(path):
         shutil.rmtree(path)
         logger.info("Deleted tenant folder %s", path)
