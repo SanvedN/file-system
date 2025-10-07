@@ -33,6 +33,8 @@ import fitz  # PyMuPDF
 # Embeddings - pluggable; placeholder using sentence-transformers
 from sentence_transformers import SentenceTransformer
 
+from shared.utils import logger
+
 
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 crud = EmbeddingCRUD()
@@ -179,7 +181,6 @@ async def get_embeddings_for_file(db: AsyncSession, *, file_id: str):
 async def search_embeddings_for_file(db: AsyncSession, *, file_id: str, query: str, top_k: int):
     qhash = str(abs(hash((query, top_k))))
     key = redis_key_for_emb_search_file(file_id, qhash, top_k)
-    # No redis param here; kept simple; cache functions use global client in shared.cache when needed
     qvec = await anyio.to_thread.run_sync(lambda: embedder.encode(query).tolist())
     return await crud.search(db, file_id=file_id, query_vector=qvec, top_k=top_k)
 

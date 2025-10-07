@@ -50,7 +50,6 @@ class TenantSearchMatch(BaseModel):
     page_id: int
     score: float
     ocr: Optional[str] = None
-    embeddings: List[float]
 
 
 class TenantSearchResponse(BaseModel):

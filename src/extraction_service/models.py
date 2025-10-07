@@ -12,7 +12,7 @@ class Embedding(Base):
 
     file_id: Mapped[str] = mapped_column(String(64), ForeignKey("cf_filerepo_file.file_id", ondelete="CASCADE"), primary_key=True)
     page_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    embeddings: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    embeddings: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)
     ocr: Mapped[str | None] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

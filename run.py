@@ -39,6 +39,7 @@ def start_services():
             str(svc["port"]),
             "--app-dir",
             svc["app_dir"],
+            "--reload"
         ]
         p = subprocess.Popen(cmd)
         processes.append(p)

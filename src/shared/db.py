@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from shared.config import settings
 from shared.utils import setup_logger
 from file_service.models import Tenant, File
+from extraction_service.models import Embedding
 from shared.base import Base
 import warnings
 

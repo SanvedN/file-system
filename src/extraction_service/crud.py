@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional, Sequence
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from extraction_service.models import Embedding
 
@@ -43,16 +43,18 @@ class EmbeddingCRUD:
 
     async def search(self, db: AsyncSession, *, file_id: str, query_vector: list[float], top_k: int) -> Sequence[tuple[int, float, str | None]]:
         # Use pgvector <-> cosine distance
+        # Pass vector as text literal and cast to vector to satisfy asyncpg binding
+        qvec_str = "[" + ",".join(str(float(x)) for x in query_vector) + "]"
         sql = """
-            SELECT page_id, 1 - (embeddings <=> :qvec) AS score, ocr
+            SELECT page_id, 1 - (embeddings <=> CAST(:qvec AS vector)) AS score, ocr
             FROM cf_filerepo_embeddings
             WHERE file_id = :fid
-            ORDER BY embeddings <=> :qvec ASC
+            ORDER BY embeddings <=> CAST(:qvec AS vector) ASC
             LIMIT :k
         """
         r = await db.execute(
-            db.text(sql),
-            {"qvec": query_vector, "fid": file_id, "k": top_k},
+            text(sql),
+            {"qvec": qvec_str, "fid": file_id, "k": top_k},
         )
         return r.all()
 
@@ -66,17 +68,18 @@ class EmbeddingCRUD:
         top_k: int,
     ) -> Sequence[tuple[str, int, float, str | None, list[float]]]:
         # Join with cf_filerepo_file to filter by tenant
+        qvec_str = "[" + ",".join(str(float(x)) for x in query_vector) + "]"
         sql = """
-            SELECT e.file_id, e.page_id, 1 - (e.embeddings <=> :qvec) AS score, e.ocr, e.embeddings
+            SELECT e.file_id, e.page_id, 1 - (e.embeddings <=> CAST(:qvec AS vector)) AS score, e.ocr, e.embeddings
             FROM cf_filerepo_embeddings e
             INNER JOIN cf_filerepo_file f ON f.file_id = e.file_id
-            WHERE f.tenant_id = :tid
-            ORDER BY e.embeddings <=> :qvec ASC
+            WHERE f.tenant_id = CAST(:tid AS uuid)
+            ORDER BY e.embeddings <=> CAST(:qvec AS vector) ASC
             LIMIT :k
         """
         r = await db.execute(
-            db.text(sql),
-            {"qvec": query_vector, "tid": tenant_id, "k": top_k},
+            text(sql),
+            {"qvec": qvec_str, "tid": tenant_id, "k": top_k},
         )
         return r.all()
 

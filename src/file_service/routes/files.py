@@ -34,6 +34,7 @@ async def upload(
     tag: Optional[str] = None,
     file: UploadFile = UploadFileField(...),
     db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
 ):
     tenant = await TenantCRUD().get_by_id(db, tenant_id)
     if not tenant:
@@ -46,6 +47,7 @@ async def upload(
         file=file,
         tag=tag,
         metadata=None,
+        redis=redis,
     )
     # Map into schema fields
     return {

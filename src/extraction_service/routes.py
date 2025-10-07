@@ -28,6 +28,23 @@ from file_service.crud.file import FileCRUD
 router = APIRouter(prefix="/v2/tenants", tags=["Embeddings"])
 
 
+@router.post("/{tenant_id}/embeddings/search", response_model=TenantSearchResponse)
+async def search_tenant(tenant_id: str, body: TenantSearchRequest, db: AsyncSession = Depends(get_db)):
+    rows = await search_embeddings_for_tenant(db, tenant_id=tenant_id, query=body.query, top_k=body.top_k)
+    return TenantSearchResponse(
+        matches=[
+            TenantSearchMatch(
+                file_id=row[0],
+                page_id=row[1],
+                score=float(row[2]),
+                ocr=row[3],
+                embeddings=list(row[4]),
+            )
+            for row in rows
+        ]
+    )
+
+
 @router.post("/{tenant_id}/embeddings/{file_id}", response_model=GenerateEmbeddingsResponse)
 async def generate(tenant_id: str, file_id: str, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     # Fetch file info
@@ -64,20 +81,6 @@ async def search(tenant_id: str, file_id: str, body: SearchEmbeddingsRequest, db
     )
 
 
-@router.post("/{tenant_id}/embeddings/search", response_model=TenantSearchResponse)
-async def search_tenant(tenant_id: str, body: TenantSearchRequest, db: AsyncSession = Depends(get_db)):
-    rows = await search_embeddings_for_tenant(db, tenant_id=tenant_id, query=body.query, top_k=body.top_k)
-    return TenantSearchResponse(
-        matches=[
-            TenantSearchMatch(
-                file_id=row[0],
-                page_id=row[1],
-                score=float(row[2]),
-                ocr=row[3],
-                embeddings=list(row[4]),
-            )
-            for row in rows
-        ]
-    )
+ 
 
 
