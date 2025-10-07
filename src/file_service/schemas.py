@@ -1,5 +1,5 @@
 import re
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from datetime import datetime
@@ -95,16 +95,12 @@ class TenantUpdate(BaseModel):
 
 
 class TenantResponse(BaseModel):
+    model_config = ConfigDict(validate_by_name=True, from_attributes=True)
     tenant_id: UUID
     tenant_code: str
     configuration: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
-        allow_population_by_field_name = True
-
 
 # ---------------------- File Schemas ----------------------
 
@@ -129,6 +125,7 @@ class FileUpdateRequest(BaseModel):
 
 
 class FileResponse(BaseModel):
+    model_config = ConfigDict(validate_by_name=True, from_attributes=True)
     id: str = Field(alias="file_id")
     file_name: str
     media_type: str
@@ -137,10 +134,6 @@ class FileResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default=None, alias="file_metadata")
     created_at: datetime
     modified_at: datetime
-
-    class Config:
-        orm_mode = True
-        allow_population_by_field_name = True
 
 
 class FileSearchFilters(BaseModel):

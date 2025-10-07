@@ -7,6 +7,7 @@ from pydantic import ValidationError
 import yaml
 import os
 import shutil
+import time
 from datetime import datetime
 from typing import Tuple
 from shared.config import settings
@@ -50,9 +51,30 @@ def generate_file_path(
 
 
 def sanitize_filename(name: str) -> str:
-    # Basic sanitization: strip path separators and nulls
+    """
+    Clean filename to prevent security issues.
+    Removes dangerous characters and path traversal attempts.
+    """
+    if not name:
+        return "unnamed_file"
+    
+    # Remove null bytes and dangerous characters
     name = name.replace("\x00", "")
+    name = name.replace("..", "")  # Prevent path traversal
+    name = name.replace("/", "_")  # Replace path separators
+    name = name.replace("\\", "_")  # Replace Windows path separators
+    
+    # Get just the filename, not the full path
     name = os.path.basename(name)
+    
+    # Limit filename length
+    if len(name) > 200:
+        name = name[:200]
+    
+    # If empty after cleaning, give it a default name
+    if not name or name == "." or name == "..":
+        name = f"file_{int(time.time())}"
+    
     return name
 
 
@@ -64,11 +86,41 @@ def tenant_month_folder(tenant_code: str) -> str:
 
 
 def generate_file_path(tenant_code: str, file_id: str, filename: str) -> str:
+    """
+    Generate file path without creating directories.
+    Directory creation should be handled separately.
+    """
     filename = sanitize_filename(filename)
     _, ext = os.path.splitext(filename)
     folder = tenant_month_folder(tenant_code)
-    os.makedirs(folder, exist_ok=True)
     return os.path.join(folder, f"{file_id}{ext}")
+
+
+def ensure_tenant_directory(tenant_code: str) -> str:
+    """
+    Ensure tenant directory exists and return the path.
+    """
+    folder = tenant_month_folder(tenant_code)
+    _ensure_directory_exists(folder)
+    return folder
+
+
+def _ensure_directory_exists(path: str) -> None:
+    """
+    Ensure directory exists with robust error handling for Windows.
+    """
+    if os.path.exists(path) and os.path.isdir(path):
+        return  # Directory already exists
+    
+    try:
+        os.makedirs(path, exist_ok=True)
+    except (FileExistsError, OSError) as e:
+        # On Windows, sometimes FileExistsError occurs even with exist_ok=True
+        # Check if directory actually exists now
+        if not (os.path.exists(path) and os.path.isdir(path)):
+            # Directory still doesn't exist, this is a real error
+            raise e
+        # Directory exists now, which is what we wanted
 
 
 def delete_tenant_folder(tenant_code: str) -> None:

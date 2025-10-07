@@ -25,28 +25,40 @@ async def get_redis_client() -> redis.Redis:
 
 
 async def cache_set(key: str, value: str, ex: int = None):
+    """
+    Set cache value with error handling.
+    If Redis is down, silently fail (graceful degradation).
+    """
     try:
         client = await get_redis_client()
         await client.set(key, value, ex=ex)
     except RedisError as e:
-        print(f"Redis SET error: {e}")
+        print(f"Redis SET error (graceful degradation): {e}")
 
 
 async def cache_get(key: str):
+    """
+    Get cache value with error handling.
+    If Redis is down, return None (graceful degradation).
+    """
     try:
         client = await get_redis_client()
         return await client.get(key)
     except RedisError as e:
-        print(f"Redis GET error: {e}")
+        print(f"Redis GET error (graceful degradation): {e}")
         return None
 
 
 async def cache_delete(key: str):
+    """
+    Delete cache value with error handling.
+    If Redis is down, silently fail (graceful degradation).
+    """
     try:
         client = await get_redis_client()
         await client.delete(key)
     except RedisError as e:
-        print(f"Redis DELETE error: {e}")
+        print(f"Redis DELETE error (graceful degradation): {e}")
 
 
 # FastAPI dependency

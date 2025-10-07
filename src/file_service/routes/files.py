@@ -129,6 +129,7 @@ async def update_file_details(
     file_id: str,
     body: FileUpdateRequest,
     db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
 ):
     rec = await update_file(
         db,
@@ -136,6 +137,7 @@ async def update_file_details(
         file_id=file_id,
         tag=body.tag,
         metadata=body.metadata,
+        redis=redis,
     )
     return {
         "file_id": rec.file_id,
