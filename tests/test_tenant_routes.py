@@ -1,6 +1,6 @@
 import types
 import pytest
-from starlette.testclient import TestClient
+import httpx
 
 
 @pytest.fixture
@@ -9,14 +9,17 @@ def tenant_router_app():
     return app
 
 
-def test_tenant_ping(tenant_router_app):
-    client = TestClient(tenant_router_app)
-    r = client.get("/v2/tenants/ping")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+@pytest.mark.anyio
+async def test_tenant_ping(tenant_router_app):
+    transport = httpx.ASGITransport(app=tenant_router_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.get("/v2/tenants/ping")
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
 
 
-def test_create_get_update_delete_tenant(monkeypatch, tenant_router_app):
+@pytest.mark.anyio
+async def test_create_get_update_delete_tenant(monkeypatch, tenant_router_app):
     from src.file_service.services import tenant_service as svc
 
     async def fake_create(db, redis, payload):
@@ -48,26 +51,26 @@ def test_create_get_update_delete_tenant(monkeypatch, tenant_router_app):
     monkeypatch.setattr(svc, "update_tenant", fake_update)
     monkeypatch.setattr(svc, "delete_tenant", fake_delete)
 
-    client = TestClient(tenant_router_app)
+    transport = httpx.ASGITransport(app=tenant_router_app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        # create
+        r = await client.post("/v2/tenants/", json={"tenant_code": "ACME"})
+        assert r.status_code == 201
+        body = r.json()
+        assert body["tenant_code"] == "ACME"
 
-    # create
-    r = client.post("/v2/tenants/", json={"tenant_code": "ACME"})
-    assert r.status_code == 201
-    body = r.json()
-    assert body["tenant_code"] == "ACME"
+        # get
+        r = await client.get("/v2/tenants/ACME")
+        assert r.status_code == 200
+        assert r.json()["tenant_code"] == "ACME"
 
-    # get
-    r = client.get("/v2/tenants/ACME")
-    assert r.status_code == 200
-    assert r.json()["tenant_code"] == "ACME"
+        # patch
+        r = await client.patch("/v2/tenants/ACME", json={"configuration": {"max_file_size_kbytes": 1024}})
+        assert r.status_code == 200
 
-    # patch
-    r = client.patch("/v2/tenants/ACME", json={"configuration": {"max_file_size_kbytes": 1024}})
-    assert r.status_code == 200
-
-    # delete
-    r = client.delete("/v2/tenants/ACME")
-    assert r.status_code == 200
-    assert r.json()["deleted"] is True
+        # delete
+        r = await client.delete("/v2/tenants/ACME")
+        assert r.status_code == 200
+        assert r.json()["deleted"] is True
 
 

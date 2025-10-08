@@ -281,7 +281,7 @@ async def upload_file(
     
     try:
         # Generate file id and destination path
-        file_id = f"CF_FR_{uuid.uuid4().hex[:12]}"
+        file_id = f"fs_{uuid.uuid4().hex[:12]}"
         safe_name = sanitize_filename(file.filename or "file")
         
         # Ensure directory exists first (thread-safe)
@@ -422,7 +422,6 @@ async def get_file(db: AsyncSession, *, tenant_id: UUID, file_id: str, redis=Non
         return rec
     
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
         logger.error(f"Database error getting file {file_id}: {e}")

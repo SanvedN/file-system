@@ -37,7 +37,6 @@ class TenantCRUD:
         except IntegrityError as e:
             await db.rollback()
             logger.exception("IntegrityError creating tenant: %s", e)
-            # raise to caller to return HTTP error
             raise
         await db.refresh(obj)
         return obj

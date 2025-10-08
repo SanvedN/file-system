@@ -4,8 +4,8 @@ import signal
 
 services = {
     "main": {
-        "app_module": "app:app",
-        "app_dir": ".",
+        "app_module": "app:app", 
+        "app_dir": ".", 
         "port": 8000,
     },
     "file_service": {
@@ -22,6 +22,7 @@ services = {
 
 processes = []
 
+
 def start_services():
     for name, svc in services.items():
         print(f"Starting {name} on port {svc['port']}...")
@@ -36,11 +37,10 @@ def start_services():
             str(svc["port"]),
             "--app-dir",
             svc["app_dir"],
-            # remove reload for production:
-            # "--reload"
         ]
         p = subprocess.Popen(cmd)
         processes.append(p)
+
 
 def stop_services(signum, frame):
     print("\nStopping all services...")
@@ -48,12 +48,14 @@ def stop_services(signum, frame):
         p.terminate()
     sys.exit(0)
 
+
 if __name__ == "__main__":
+    # Catch SIGINT (Ctrl+C) to gracefully terminate all subprocesses
     signal.signal(signal.SIGINT, stop_services)
-    signal.signal(signal.SIGTERM, stop_services)
 
     start_services()
     print("All services started. Press Ctrl+C to stop.")
 
-    # Wait indefinitely until signal is received
-    signal.pause()
+    # Wait indefinitely for processes
+    for p in processes:
+        p.wait()

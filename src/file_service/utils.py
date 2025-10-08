@@ -147,7 +147,7 @@ def delete_file_path(path: str) -> None:
 
 def create_tenant_folder(tenant_code: str):
     path = os.path.join(settings.file_repo_storage_base, tenant_code)
-    os.makedirs(path, exist_ok=True)  # Creates recursively if not exists
+    os.makedirs(path, exist_ok=True)
 
 
 def delete_tenant_folder(tenant_code: str):

@@ -8,7 +8,7 @@ from extraction_service.models import Embedding
 from shared.base import Base
 import warnings
 
-warnings.simplefilter("always", DeprecationWarning)  # Show all DeprecationWarnings
+warnings.simplefilter("always", DeprecationWarning)
 
 
 # Setup logger

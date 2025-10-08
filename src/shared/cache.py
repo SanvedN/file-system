@@ -118,10 +118,6 @@ async def cache_get_tenant(redis: redis.Redis, code: str) -> dict | None:
 async def cache_delete_tenant(redis: redis.Redis, code: str) -> None:
     await redis.delete(redis_key_for_tenant(code))
 
-
-# -------------------- File Cache Helpers --------------------
-
-
 def redis_key_for_files_list(tenant_id: str) -> str:
     return f"files:list:{tenant_id}"
 
@@ -173,8 +169,6 @@ async def cache_get_file_detail(
 async def cache_delete_file_detail(redis: redis.Redis, tenant_id: str, file_id: str) -> None:
     await redis.delete(redis_key_for_file_detail(tenant_id, file_id))
 
-
-# -------------------- Embeddings Cache Helpers --------------------
 
 
 def redis_key_for_emb_pages(file_id: str) -> str:

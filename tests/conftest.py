@@ -3,6 +3,7 @@ import types
 import pytest
 import httpx
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 
 
 @pytest.fixture
@@ -30,6 +31,11 @@ def file_app(monkeypatch):
     from src.shared.cache import get_redis
     file_app.dependency_overrides[get_db] = _dummy_gen
     file_app.dependency_overrides[get_redis] = _dummy_gen
+    # Disable real lifespan (no real DB/Redis init/close during tests)
+    @asynccontextmanager
+    async def noop_lifespan(app: FastAPI):
+        yield
+    file_app.router.lifespan_context = noop_lifespan
     return file_app
 
 
@@ -40,6 +46,11 @@ def extraction_app(monkeypatch):
     from src.shared.cache import get_redis
     ext_app.dependency_overrides[get_db] = _dummy_gen
     ext_app.dependency_overrides[get_redis] = _dummy_gen
+    # Disable real lifespan
+    @asynccontextmanager
+    async def noop_lifespan(app: FastAPI):
+        yield
+    ext_app.router.lifespan_context = noop_lifespan
     return ext_app
 
 

@@ -16,8 +16,7 @@ def get_log_level(level_str: str) -> int:
         "NOTSET": logging.NOTSET,
     }.get(
         level_str.upper(), logging.INFO
-    )  # default to INFO if unknown
-
+    )
 
 def get_log_processors(format_str: str):
     """Return processor list based on format (e.g., 'json' or 'plain')."""

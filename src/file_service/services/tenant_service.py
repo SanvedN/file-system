@@ -107,7 +107,7 @@ async def update_tenant(db: AsyncSession, redis, code: str, data: TenantUpdate):
             status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
         )
 
-    # Prevent code change (TenantUpdate has no code field — just in case)
+    # Prevent code change (TenantUpdate has no code field,just in case)
     if hasattr(data, "code") and data.code is not None and data.code != tenant.code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

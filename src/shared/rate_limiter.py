@@ -78,7 +78,7 @@ async def check_upload_rate_limit(tenant_id: str, redis=None) -> bool:
     """
     return await check_rate_limit(
         key=f"upload:{tenant_id}",
-        max_requests=50,  # 50 uploads per hour
+        max_requests=50,
         window_seconds=3600,
         redis=redis
     )
@@ -91,7 +91,7 @@ async def check_embedding_rate_limit(tenant_id: str, redis=None) -> bool:
     """
     return await check_rate_limit(
         key=f"embedding:{tenant_id}",
-        max_requests=10,  # 10 embedding generations per hour
+        max_requests=10,
         window_seconds=3600,
         redis=redis
     )

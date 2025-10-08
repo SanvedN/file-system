@@ -16,10 +16,26 @@ from file_service.schemas import TenantCreate, TenantUpdate
 from file_service.services import tenant_service
 
 
-@pytest.mark.asyncio
-async def test_tenant_crud_flow():
+@pytest.mark.anyio
+async def test_tenant_crud_flow(monkeypatch):
+    # Stub Redis client to avoid real network
+    class DummyRedis:
+        async def get(self, *a, **k):
+            return None
+        async def set(self, *a, **k):
+            return True
+        async def delete(self, *a, **k):
+            return True
+        async def aclose(self):
+            return None
+
+    from src.shared import cache as cache_module
+    async def fake_get_redis_client():
+        return DummyRedis()
+    monkeypatch.setattr(cache_module, "get_redis_client", fake_get_redis_client)
+
     async with SessionLocal() as db:
-        redis = await get_redis_client()
+        redis = await fake_get_redis_client()
 
         tenant_code = "T" + uuid.uuid4().hex[:7].upper()
         print(f"\n=== Creating Tenant {tenant_code} ===")
