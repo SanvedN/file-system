@@ -1,3 +1,99 @@
+# version: "3.8"
+# This is for proper microservice deployment - currently using one container for all
+# services:
+#   db:
+#     image: ankane/pgvector
+#     restart: always
+#     environment:
+#       POSTGRES_USER: appuser
+#       POSTGRES_PASSWORD: secret
+#       POSTGRES_DB: appdb
+#     ports:
+#       - "5433:5432"
+#     volumes:
+#       - pgdata:/var/lib/postgresql/data
+
+#   redis:
+#     image: redis:7.2-alpine
+#     restart: always
+#     ports:
+#       - "6379:6379"
+
+#   x-common-build: &common-build
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#       target: app # your multi-stage target (if any)
+
+#   gateway:
+#     <<: *common-build
+#     command: uvicorn app:app --host 0.0.0.0 --port 8000
+#     ports:
+#       - "8000:8000"
+#     environment:
+#       FILE_SERVICE_BASE: http://file_service:8001
+#       EXTRACTION_SERVICE_BASE: http://extraction_service:8002
+#     depends_on:
+#       - file_service
+#       - extraction_service
+
+#   file_service:
+#     <<: *common-build
+#     command: uvicorn src.file_service.app:app --host 0.0.0.0 --port 8001 --app-dir /app/src
+#     environment:
+#       FILE_REPO_DB_NAME: appdb
+#       FILE_REPO_DB_USERNAME: appuser
+#       FILE_REPO_DB_PASSWORD: secret
+#       FILE_REPO_DB_HOST: db
+#       FILE_REPO_DB_PORT: 5432
+#       FILE_REPO_REDIS_HOST: redis
+#       FILE_REPO_REDIS_PORT: 6379
+#       FILE_REPO_REDIS_DB_NUMBER: 0
+#       FILE_REPO_STORAGE_BASE: /app/storage
+#       FILE_REPO_TEMP_BASE: /app/temp
+#       FILE_REPO_LOG_LEVEL: INFO
+#       FILE_REPO_LOG_FORMAT: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+#       FILE_REPO_CORS_ORIGINS: "*"
+#       FILE_REPO_HOST: 0.0.0.0
+#       FILE_REPO_PORT: 8001
+#     volumes:
+#       - storage:/app/storage
+#       - temp:/app/temp
+#     depends_on:
+#       - db
+#       - redis
+
+#   extraction_service:
+#     <<: *common-build
+#     command: uvicorn src.extraction_service.app:app --host 0.0.0.0 --port 8002 --app-dir /app/src
+#     environment:
+#       FILE_REPO_DB_NAME: appdb
+#       FILE_REPO_DB_USERNAME: appuser
+#       FILE_REPO_DB_PASSWORD: secret
+#       FILE_REPO_DB_HOST: db
+#       FILE_REPO_DB_PORT: 5432
+#       FILE_REPO_REDIS_HOST: redis
+#       FILE_REPO_REDIS_PORT: 6379
+#       FILE_REPO_REDIS_DB_NUMBER: 0
+#       FILE_REPO_STORAGE_BASE: /app/storage
+#       FILE_REPO_TEMP_BASE: /app/temp
+#       FILE_REPO_LOG_LEVEL: INFO
+#       FILE_REPO_LOG_FORMAT: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+#       FILE_REPO_CORS_ORIGINS: "*"
+#       FILE_REPO_HOST: 0.0.0.0
+#       FILE_REPO_PORT: 8002
+#     volumes:
+#       - storage:/app/storage
+#       - temp:/app/temp
+#     depends_on:
+#       - db
+#       - redis
+
+# volumes:
+#   pgdata:
+#   storage:
+#   temp:
+
 services:
   db:
     image: ankane/pgvector
@@ -17,21 +113,15 @@ services:
     ports:
       - "6379:6379"
 
-  gateway:
-    build: .
-    command: uvicorn app:app --host 0.0.0.0 --port 8000
-    environment:
-      FILE_SERVICE_BASE: http://file_service:8001
-      EXTRACTION_SERVICE_BASE: http://extraction_service:8002
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
     ports:
       - "8000:8000"
-    depends_on:
-      - file_service
-      - extraction_service
-
-  file_service:
-    build: .
-    command: uvicorn src.file_service.app:app --host 0.0.0.0 --port 8001 --app-dir /app/src
+      - "8001:8001"
+      - "8002:8002"
     environment:
       FILE_REPO_DB_NAME: appdb
       FILE_REPO_DB_USERNAME: appuser
@@ -46,34 +136,6 @@ services:
       FILE_REPO_LOG_LEVEL: INFO
       FILE_REPO_LOG_FORMAT: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
       FILE_REPO_CORS_ORIGINS: "*"
-      FILE_REPO_HOST: 0.0.0.0
-      FILE_REPO_PORT: 8001
-    volumes:
-      - storage:/app/storage
-      - temp:/app/temp
-    depends_on:
-      - db
-      - redis
-
-  extraction_service:
-    build: .
-    command: uvicorn src.extraction_service.app:app --host 0.0.0.0 --port 8002 --app-dir /app/src
-    environment:
-      FILE_REPO_DB_NAME: appdb
-      FILE_REPO_DB_USERNAME: appuser
-      FILE_REPO_DB_PASSWORD: secret
-      FILE_REPO_DB_HOST: db
-      FILE_REPO_DB_PORT: 5432
-      FILE_REPO_REDIS_HOST: redis
-      FILE_REPO_REDIS_PORT: 6379
-      FILE_REPO_REDIS_DB_NUMBER: 0
-      FILE_REPO_STORAGE_BASE: /app/storage
-      FILE_REPO_TEMP_BASE: /app/temp
-      FILE_REPO_LOG_LEVEL: INFO
-      FILE_REPO_LOG_FORMAT: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-      FILE_REPO_CORS_ORIGINS: "*"
-      FILE_REPO_HOST: 0.0.0.0
-      FILE_REPO_PORT: 8002
     volumes:
       - storage:/app/storage
       - temp:/app/temp

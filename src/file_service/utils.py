@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 import pydantic
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
@@ -134,11 +135,14 @@ def delete_tenant_folder(tenant_code: str) -> None:
 
 def delete_file_path(path: str) -> None:
     try:
-        if os.path.exists(path):
-            os.remove(path)
-            logger.info("Deleted file %s", path)
-    except Exception:
-        logger.exception("Error deleting file path %s", path)
+        file_path = Path(path)
+        if file_path.exists() and file_path.is_file():
+            file_path.unlink()
+            logger.info("Deleted file: %s", file_path.as_posix())
+        else:
+            logger.warning("File not found or not a regular file: %s", file_path.as_posix())
+    except Exception as e:
+        logger.exception("Error deleting file path %s: %s", path, str(e))
 
 
 def create_tenant_folder(tenant_code: str):

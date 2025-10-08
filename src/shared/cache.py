@@ -4,6 +4,7 @@ import redis.asyncio as redis
 from redis.exceptions import RedisError
 from urllib.parse import urlparse
 from shared.config import settings
+from file_service.models import Tenant
 
 REDIS_URL = settings.file_repo_redis_url
 
@@ -14,14 +15,28 @@ async def init_redis():
     global _redis_client
     if _redis_client is None:
         _redis_client = redis.from_url(
-            REDIS_URL, decode_responses=True  # Optional: makes string handling easier
+            REDIS_URL, 
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            retry_on_timeout=True,
+            health_check_interval=30
         )
 
 
 async def get_redis_client() -> redis.Redis:
+    global _redis_client
     if _redis_client is None:
         await init_redis()
-    return _redis_client
+    try:
+        # Test connection health
+        await _redis_client.ping()
+        return _redis_client
+    except RedisError:
+        # If connection is bad, try to recreate it
+        _redis_client = None
+        await init_redis()
+        return _redis_client
 
 
 async def cache_set(key: str, value: str, ex: int = None):
@@ -34,6 +49,9 @@ async def cache_set(key: str, value: str, ex: int = None):
         await client.set(key, value, ex=ex)
     except RedisError as e:
         print(f"Redis SET error (graceful degradation): {e}")
+        # Log the specific error type for debugging
+        import logging
+        logging.warning(f"Redis error writing cache: {type(e).__name__}: {e}")
 
 
 async def cache_get(key: str):
@@ -46,6 +64,9 @@ async def cache_get(key: str):
         return await client.get(key)
     except RedisError as e:
         print(f"Redis GET error (graceful degradation): {e}")
+        # Log the specific error type for debugging
+        import logging
+        logging.warning(f"Redis error reading cache: {type(e).__name__}: {e}")
         return None
 
 
@@ -59,6 +80,9 @@ async def cache_delete(key: str):
         await client.delete(key)
     except RedisError as e:
         print(f"Redis DELETE error (graceful degradation): {e}")
+        # Log the specific error type for debugging
+        import logging
+        logging.warning(f"Redis error deleting cache: {type(e).__name__}: {e}")
 
 
 # FastAPI dependency
@@ -70,10 +94,15 @@ def redis_key_for_tenant(code: str) -> str:
     return f"tenant:cfg:{code}"
 
 
-async def cache_set_tenant(
-    redis: redis.Redis, code: str, cfg: dict, ttl_seconds: int = 3600
-) -> None:
-    await redis.set(redis_key_for_tenant(code), json.dumps(cfg), ex=ttl_seconds)
+async def cache_set_tenant(redis: redis.Redis, code: str, tenant: Tenant, ttl_seconds: int = 3600) -> None:
+    cache_data = {
+        "tenant_id": str(tenant.tenant_id),
+        "tenant_code": tenant.tenant_code,
+        "configuration": tenant.configuration or {},
+        "created_at": tenant.created_at.isoformat(),
+        "updated_at": tenant.updated_at.isoformat()
+    }
+    await redis.set(redis_key_for_tenant(code), json.dumps(cache_data), ex=ttl_seconds)
 
 
 async def cache_get_tenant(redis: redis.Redis, code: str) -> dict | None:

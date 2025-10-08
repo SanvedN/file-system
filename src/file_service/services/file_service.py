@@ -33,6 +33,7 @@ import anyio
 import hashlib
 import time
 from pathlib import Path
+import zipfile
 
 
 logger = setup_logger()
@@ -107,16 +108,77 @@ def _validate_file_content_vs_extension(file_path: str, expected_ext: str, detec
         return detected_mime
 
 
+def _validate_zip_depth(file_path: str, max_depth: int) -> None:
+    """
+    Validate ZIP file depth against tenant configuration.
+    Raises HTTPException if ZIP contains nested ZIPs beyond allowed depth.
+    """
+    if max_depth < 0:
+        return  # No validation needed
+    
+    try:
+        with zipfile.ZipFile(file_path, 'r') as zip_file:
+            for info in zip_file.infolist():
+                # Check if this is a ZIP file (case insensitive)
+                if info.filename.lower().endswith('.zip'):
+                    # Found a nested ZIP
+                    if max_depth == 0:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="ZIP files with nested ZIPs are not allowed (max_zip_depth=0)"
+                        )
+                    
+                    # For depth > 0, extract and validate recursively
+                    if max_depth > 0:
+                        # Create a temporary file with a unique name
+                        import tempfile
+                        import uuid
+                        
+                        temp_dir = tempfile.gettempdir()
+                        temp_filename = f"nested_zip_{uuid.uuid4().hex}.zip"
+                        temp_path = os.path.join(temp_dir, temp_filename)
+                        
+                        try:
+                            # Extract the nested ZIP
+                            with zip_file.open(info.filename) as source:
+                                with open(temp_path, 'wb') as target:
+                                    target.write(source.read())
+                            
+                            # Recursively validate the nested ZIP
+                            _validate_zip_depth(temp_path, max_depth - 1)
+                        finally:
+                            # Clean up temp file
+                            try:
+                                if os.path.exists(temp_path):
+                                    os.remove(temp_path)
+                            except Exception as cleanup_error:
+                                logger.warning(f"Failed to cleanup temp file {temp_path}: {cleanup_error}")
+                                
+    except zipfile.BadZipFile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ZIP file format"
+        )
+    except HTTPException:
+        raise  # Re-raise our validation exceptions
+    except Exception as e:
+        logger.warning(f"Error validating ZIP depth for {file_path}: {e}")
+        # Don't fail upload for unexpected errors, just log them
+        # This ensures the system remains robust even if ZIP validation has issues
+        pass
+
+
 def _validate_against_config(
     *,
     tenant_config: Dict[str, Any],
     ext: str,
     mime: str,
     size_bytes: int,
+    file_path: Optional[str] = None,
 ):
     """
     Validate file against tenant configuration.
-    Checks size, extensions, and MIME types.
+    Checks size, extensions, MIME types, and ZIP depth.
     """
     # Check for empty files
     if size_bytes == 0:
@@ -158,6 +220,12 @@ def _validate_against_config(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MIME type not allowed")
     if not allowed_mimes:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MIME type not allowed")
+    
+    # ZIP depth validation
+    if ext == '.zip' and file_path:
+        max_zip_depth = tenant_config.get("max_zip_depth", 0)
+        if isinstance(max_zip_depth, int):
+            _validate_zip_depth(file_path, max_zip_depth)
 
 
 async def _check_concurrent_upload(redis, tenant_id: UUID, filename: str) -> str:
@@ -240,19 +308,19 @@ async def upload_file(
                 # Early size validation
                 try:
                     _validate_against_config(
-                        tenant_config=tenant_config, ext=ext, mime=media_type, size_bytes=size
+                        tenant_config=tenant_config, ext=ext, mime=media_type, size_bytes=size, file_path=dst_path
                     )
                 except HTTPException:
                     # cleanup partial
                     try:
                         await out.flush()
                     finally:
-                        delete_file_path(dst_path)
+                        await anyio.to_thread.run_sync(delete_file_path, dst_path)
                     raise
 
         # Final validation (covers very small files or exact threshold)
         _validate_against_config(
-            tenant_config=tenant_config, ext=ext, mime=media_type, size_bytes=size
+            tenant_config=tenant_config, ext=ext, mime=media_type, size_bytes=size, file_path=dst_path
         )
         
         # Validate file content matches extension
@@ -400,6 +468,7 @@ async def delete_file(db: AsyncSession, *, tenant_id: UUID, file_id: str, redis=
         try:
             await cache_delete_file_detail(redis, str(tenant_id), file_id)
             await cache_delete_files_list(redis, str(tenant_id))
+            logger.info(f"Cache invalidated for deleted file {file_id} in tenant {tenant_id}")
         except Exception:
             logger.exception("Failed to invalidate caches for delete %s", file_id)
     return True

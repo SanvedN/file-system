@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import asyncio
 from copy import deepcopy
@@ -5,7 +6,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status, BackgroundTasks
 from uuid import UUID
-from file_service.schemas import TenantCreate, TenantUpdate
+from file_service.schemas import TenantCreate, TenantResponse, TenantUpdate
 from file_service.crud.tenant import TenantCRUD
 from file_service.crud.file import FileCRUD
 from shared.cache import cache_set_tenant, cache_get_tenant, cache_delete_tenant
@@ -29,8 +30,13 @@ async def get_tenant_by_code(db: AsyncSession, redis, code: str):
         try:
             cached = await cache_get_tenant(redis, code)
             if cached is not None:
-                # return minimal object-like dict. The route expects ORM-mode but we can construct response in route.
-                return {"tenant_code": code, "configuration": cached}
+                return TenantResponse(
+                    tenant_id=UUID(cached["tenant_id"]),
+                    tenant_code=cached["tenant_code"],
+                    configuration=cached["configuration"],
+                    created_at=datetime.fromisoformat(cached["created_at"]),
+                    updated_at=datetime.fromisoformat(cached["updated_at"])
+                )
         except Exception:
             logger.exception("Redis read failed for tenant %s", code)
 
@@ -40,12 +46,10 @@ async def get_tenant_by_code(db: AsyncSession, redis, code: str):
             status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found"
         )
 
-    # cache
+    # cache full tenant
     if redis:
         try:
-            await cache_set_tenant(
-                redis, tenant.tenant_code, tenant.configuration or {}
-            )
+            await cache_set_tenant(redis, tenant.tenant_code, tenant)
         except Exception:
             logger.exception("Failed to set tenant cache for %s", tenant.tenant_code)
 
@@ -88,7 +92,7 @@ async def create_tenant(db: AsyncSession, redis, data: TenantCreate):
     if redis:
         try:
             await cache_set_tenant(
-                redis, tenant.tenant_code, tenant.configuration or {}
+                redis, tenant.tenant_code, tenant
             )
         except Exception:
             logger.exception("Failed to cache tenant %s", tenant.tenant_code)
@@ -127,7 +131,7 @@ async def update_tenant(db: AsyncSession, redis, code: str, data: TenantUpdate):
     if redis:
         try:
             await cache_set_tenant(
-                redis, tenant.tenant_code, updated.configuration or {}
+                redis, tenant.tenant_code, tenant
             )
         except Exception:
             logger.exception("Failed to update tenant cache %s", tenant.tenant_code)

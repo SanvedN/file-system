@@ -30,7 +30,6 @@ import pytesseract
 from PIL import Image
 import fitz  # PyMuPDF
 
-# Embeddings - pluggable; placeholder using sentence-transformers
 from sentence_transformers import SentenceTransformer
 
 from shared.utils import logger
